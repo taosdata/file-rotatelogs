@@ -3,6 +3,7 @@ package fileutil
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/lestrrat-go/strftime"
@@ -41,7 +42,7 @@ func GenerateFn(pattern *strftime.Strftime, clock interface{ Now() time.Time }, 
 
 // CreateFile creates a new file in the given path, creating parent directories
 // as necessary
-func CreateFile(filename string) (*os.File, error) {
+func CreateFile(filename string, appendFile bool) (*os.File, error) {
 	// make sure the dir is existed, eg:
 	// ./foo/bar/baz/hello.log must make sure ./foo/bar/baz is existed
 	dirname := filepath.Dir(filename)
@@ -49,7 +50,17 @@ func CreateFile(filename string) (*os.File, error) {
 		return nil, errors.Wrapf(err, "failed to create directory %s", dirname)
 	}
 	// if we got here, then we need to create a file
-	fh, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	var fh *os.File
+	var err error
+	if appendFile {
+		if runtime.GOOS == "windows" {
+			fh, err = os.OpenFile(filename, os.O_CREATE|os.O_APPEND, 0644)
+		} else {
+			fh, err = os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		}
+	} else {
+		fh, err = os.OpenFile(filename, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	}
 	if err != nil {
 		return nil, errors.Errorf("failed to open file %s: %s", filename, err)
 	}

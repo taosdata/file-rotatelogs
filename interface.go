@@ -33,21 +33,31 @@ type FileRotatedEvent struct {
 // RotateLogs represents a log file that gets
 // automatically rotated as you write to it.
 type RotateLogs struct {
-	clock         Clock
-	curFn         string
-	curBaseFn     string
-	globPattern   string
-	generation    int
-	linkName      string
-	maxAge        time.Duration
-	mutex         sync.RWMutex
-	eventHandler  Handler
-	outFh         *os.File
-	pattern       *strftime.Strftime
-	rotationTime  time.Duration
-	rotationSize  int64
-	rotationCount uint
-	forceNewFile  bool
+	clock            Clock
+	curFn            string
+	curBaseFn        string
+	globPattern      string
+	generation       int
+	linkName         string
+	lockFilename     string
+	maxAge           time.Duration
+	mutex            sync.RWMutex
+	eventHandler     Handler
+	outFh            *os.File
+	lockFh           *os.File
+	pattern          *strftime.Strftime
+	rotationTime     time.Duration
+	rotationSize     int64
+	rotationCount    uint
+	forceNewFile     bool
+	logPath          string
+	reservedDiskSize int64
+	availDiskSize    int64
+	compress         bool
+	rotateCleanChan  chan struct{}
+	exitChan         chan struct{}
+	done             chan struct{}
+	cleanLockName    string
 }
 
 // Clock is the interface used by the RotateLogs
