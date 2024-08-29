@@ -201,8 +201,8 @@ func (rl *RotateLogs) getWriterNolock(bailOnRotateFail, useGenerationalNames boo
 	baseFn := fileutil.GenerateFn(rl.pattern, rl.clock, rl.rotationTime)
 	var forceNewFile bool
 	filename := baseFn
-	fi, err := os.Stat(rl.curFn)
 	sizeRotation := false
+	fi, err := os.Stat(rl.curFn)
 	if err == nil && rl.rotationSize > 0 && rl.rotationSize <= fi.Size() {
 		forceNewFile = true
 		sizeRotation = true
@@ -332,7 +332,6 @@ func createLogFileAndLock(filename string, lockFilename string, appendFile bool)
 	// check file in use
 	err = LockFile(logFileHandle)
 	if err != nil {
-		UnlockFile(logFileHandle)
 		logFileHandle.Close()
 		return nil, nil, err
 	}
