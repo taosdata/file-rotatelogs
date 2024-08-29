@@ -24,3 +24,4 @@ _testmain.go
 /.idea/file-rotatelogs.iml
 /.idea/modules.xml
 /.idea/vcs.xml
+/.idea/remote-targets.xml

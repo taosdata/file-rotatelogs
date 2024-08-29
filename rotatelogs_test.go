@@ -252,7 +252,13 @@ func TestLogRotationCount(t *testing.T) {
 		}
 		time.Sleep(time.Second)
 		files, _ := filepath.Glob(filepath.Join(dir, "log*"))
-		if !assert.Equal(t, 1, len(files), "Only latest log is kept") {
+		var filteredFiles []string
+		for _, file := range files {
+			if !strings.HasSuffix(file, "_lock") {
+				filteredFiles = append(filteredFiles, file)
+			}
+		}
+		if !assert.Equal(t, 1, len(filteredFiles), "Only latest log is kept") {
 			return
 		}
 	})
@@ -279,7 +285,13 @@ func TestLogRotationCount(t *testing.T) {
 		}
 		time.Sleep(time.Second)
 		files, _ := filepath.Glob(filepath.Join(dir, "log*"))
-		if !assert.Equal(t, 2, len(files), "One file is kept") {
+		var filteredFiles []string
+		for _, file := range files {
+			if !strings.HasSuffix(file, "_lock") {
+				filteredFiles = append(filteredFiles, file)
+			}
+		}
+		if !assert.Equal(t, 2, len(filteredFiles), "One file is kept") {
 			return
 		}
 	})
@@ -334,7 +346,7 @@ func TestGHIssue16(t *testing.T) {
 
 	rl, err := rotatelogs.New(
 		filepath.Join(dir, "log%Y%m%d%H%M%S"),
-		rotatelogs.WithLinkName("./test.log"),
+		rotatelogs.WithLinkName(filepath.Join(dir, "./test.log")),
 		rotatelogs.WithRotationTime(10*time.Second),
 		rotatelogs.WithRotationCount(3),
 		rotatelogs.WithMaxAge(-1),
@@ -579,4 +591,62 @@ func TestForceNewFile(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestCompress(t *testing.T) {
+	dir, err := ioutil.TempDir("", "file-rotatelogs-compress")
+	if !assert.NoError(t, err, `creating temporary directory should succeed`) {
+		return
+	}
+	defer os.RemoveAll(dir)
+	rl, err := rotatelogs.New(
+		filepath.Join(dir, "compress.log"),
+		rotatelogs.ForceNewFile(),
+		rotatelogs.WithCompress(true),
+		rotatelogs.WithRotateGlobPattern(filepath.Join(dir, "compress.log*")),
+		rotatelogs.WithCleanLockFile(filepath.Join(dir, "clean.lock")),
+	)
+	if !assert.NoError(t, err, "rotatelogs.New should succeed") {
+		return
+	}
+	_, err = rl.Write([]byte("Hello, World!"))
+	if !assert.NoError(t, err, "rl.Write should succeed") {
+		return
+	}
+	err = rl.Rotate()
+	if !assert.NoError(t, err, "rl.Rotate should succeed") {
+		return
+	}
+	rl.Write([]byte("Hello, World!"))
+	time.Sleep(time.Second)
+	files, _ := filepath.Glob(filepath.Join(dir, "compress.log.gz"))
+	if !assert.Len(t, files, 1, "only one compressed file should exist") {
+		return
+	}
+	rl.Close()
+}
+
+func TestReservedDiskSize(t *testing.T) {
+	dir, err := ioutil.TempDir("", "file-rotatelogs-reserved")
+	if !assert.NoError(t, err, `creating temporary directory should succeed`) {
+		return
+	}
+	defer os.RemoveAll(dir)
+	total, avail, err := rotatelogs.GetDiskSize(dir)
+	if !assert.NoError(t, err, "GetDiskSize should succeed") {
+		return
+	}
+	t.Log("total disk size:", total, "available disk size:", avail)
+	rl, err := rotatelogs.New(
+		filepath.Join(dir, "reserved.log"),
+		rotatelogs.WithReservedDiskSize(int64(total)),
+	)
+	if !assert.NoError(t, err, "rotatelogs.New should succeed") {
+		return
+	}
+	_, err = rl.Write([]byte("Hello, World!"))
+	if !assert.Error(t, err, "rl.Write should fail") {
+		return
+	}
+	rl.Close()
 }

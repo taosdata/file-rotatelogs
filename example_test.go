@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	rotatelogs "github.com/taosdata/file-rotatelogs/v2"
 )
@@ -15,7 +16,7 @@ func ExampleForceNewFile() {
 
 		return
 	}
-	logPath := fmt.Sprintf("%s/test.log", logDir)
+	logPath := filepath.Join(logDir, "test.log")
 
 	for i := 0; i < 2; i++ {
 		writer, err := rotatelogs.New(logPath,

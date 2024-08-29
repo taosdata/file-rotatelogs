@@ -7,14 +7,18 @@ import (
 )
 
 const (
-	optkeyClock         = "clock"
-	optkeyHandler       = "handler"
-	optkeyLinkName      = "link-name"
-	optkeyMaxAge        = "max-age"
-	optkeyRotationTime  = "rotation-time"
-	optkeyRotationSize  = "rotation-size"
-	optkeyRotationCount = "rotation-count"
-	optkeyForceNewFile  = "force-new-file"
+	optkeyClock            = "clock"
+	optkeyHandler          = "handler"
+	optkeyLinkName         = "link-name"
+	optkeyMaxAge           = "max-age"
+	optkeyRotationTime     = "rotation-time"
+	optkeyRotationSize     = "rotation-size"
+	optkeyRotationCount    = "rotation-count"
+	optkeyForceNewFile     = "force-new-file"
+	optKeyReservedDiskSize = "reserved-disk-size"
+	optKeyGlobPattern      = "glob-pattern"
+	optKeyCompress         = "compress"
+	optKeyCleanLockFile    = "clean-lock-file"
 )
 
 // WithClock creates a new Option that sets a clock
@@ -86,4 +90,20 @@ func WithHandler(h Handler) Option {
 // rotation is performed
 func ForceNewFile() Option {
 	return option.New(optkeyForceNewFile, true)
+}
+
+func WithReservedDiskSize(size int64) Option {
+	return option.New(optKeyReservedDiskSize, size)
+}
+
+func WithRotateGlobPattern(pattern string) Option {
+	return option.New(optKeyGlobPattern, pattern)
+}
+
+func WithCompress(compress bool) Option {
+	return option.New(optKeyCompress, compress)
+}
+
+func WithCleanLockFile(lockName string) Option {
+	return option.New(optKeyCleanLockFile, lockName)
 }
