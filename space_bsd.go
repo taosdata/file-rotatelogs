@@ -1,5 +1,5 @@
-//go:build linux && !s390x && !netbsd
-// +build linux,!s390x,!netbsd
+//go:build darwin || dragonfly || s390x
+// +build darwin dragonfly s390x
 
 package rotatelogs
 
@@ -13,7 +13,7 @@ func GetDiskSize(dir string) (total uint64, avail uint64, err error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	avail = fs.Bavail * uint64(fs.Frsize)
-	total = fs.Blocks * uint64(fs.Frsize)
+	avail = fs.Bavail * uint64(fs.Bsize)
+	total = fs.Blocks * uint64(fs.Bsize)
 	return total, avail, nil
 }
