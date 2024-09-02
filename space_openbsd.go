@@ -11,7 +11,7 @@ func GetDiskSize(dir string) (total uint64, avail uint64, err error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	avail = fs.F_blocks * uint64(fs.F_bsize)
-	total = uint64(fs.F_bavail) * uint64(fs.F_bsize)
+	avail = uint64(fs.F_bavail) * uint64(fs.F_bsize)
+	total = fs.F_blocks * uint64(fs.F_bsize)
 	return total, avail, nil
 }
