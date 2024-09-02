@@ -1,11 +1,9 @@
-//go:build linux && !s390x && !netbsd
-// +build linux,!s390x,!netbsd
+//go:build openbsd
+// +build openbsd
 
 package rotatelogs
 
-import (
-	"golang.org/x/sys/unix"
-)
+import "golang.org/x/sys/unix"
 
 func GetDiskSize(dir string) (total uint64, avail uint64, err error) {
 	fs := unix.Statfs_t{}
@@ -13,7 +11,7 @@ func GetDiskSize(dir string) (total uint64, avail uint64, err error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	avail = uint64(fs.Bavail) * uint64(fs.Frsize)
-	total = uint64(fs.Blocks) * uint64(fs.Frsize)
+	avail = uint64(fs.F_bavail) * uint64(fs.F_bsize)
+	total = fs.F_blocks * uint64(fs.F_bsize)
 	return total, avail, nil
 }
