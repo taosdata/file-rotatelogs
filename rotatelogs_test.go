@@ -223,7 +223,7 @@ func TestLogRotationCount(t *testing.T) {
 			rotatelogs.WithMaxAge(1),
 			rotatelogs.WithRotationCount(1),
 		)
-		if !assert.Error(t, err, `Both of maxAge and rotationCount is enabled`) {
+		if !assert.NoError(t, err) {
 			return
 		}
 		if rl != nil {
@@ -649,4 +649,163 @@ func TestReservedDiskSize(t *testing.T) {
 		return
 	}
 	rl.Close()
+}
+
+func TestWithMaxAge(t *testing.T) {
+	dir, err := ioutil.TempDir("", "file-rotatelogs-maxage")
+	if !assert.NoError(t, err, `creating temporary directory should succeed`) {
+		return
+	}
+	defer os.RemoveAll(dir)
+	dummyTime := time.Now().Add(-24 * time.Hour)
+	clock := clockwork.NewFakeClockAt(dummyTime)
+	rl, err := rotatelogs.New(
+		filepath.Join(dir, "rotationTime_%Y%m%d%H%M%S.log"),
+		rotatelogs.WithClock(clock),
+		rotatelogs.WithRotationTime(24*time.Hour),
+		rotatelogs.WithMaxAge(time.Second*2),
+		rotatelogs.WithRotationCount(5),
+	)
+	if !assert.NoError(t, err, "rotatelogs.New should succeed") {
+		return
+	}
+	_, err = rl.Write([]byte("Hello, World!"))
+	if !assert.NoError(t, err) {
+		return
+	}
+	files, err := filepath.Glob(filepath.Join(dir, "rotationTime_*.log"))
+	if !assert.NoError(t, err) {
+		return
+	}
+	if !assert.Equal(t, 1, len(files)) {
+		return
+	}
+	time.Sleep(time.Second * 2)
+	lastFile := files[0]
+	for i := 0; i < 5; i++ {
+		clock.Advance(24 * time.Hour)
+		_, err = rl.Write([]byte("Hello, World!"))
+		if !assert.NoError(t, err) {
+			return
+		}
+		time.Sleep(time.Second * 2)
+		files, err = filepath.Glob(filepath.Join(dir, "rotationTime_*.log*"))
+		if !assert.NoError(t, err) {
+			return
+		}
+		var filteredFiles []string
+		for _, file := range files {
+			if !strings.HasSuffix(file, "_lock") {
+				filteredFiles = append(filteredFiles, file)
+			}
+		}
+		t.Log(len(filteredFiles), files)
+		if !assert.Equal(t, 1, len(filteredFiles)) {
+			return
+		}
+		if !assert.NotEqual(t, lastFile, filteredFiles[0]) {
+			return
+		}
+		lastFile = filteredFiles[0]
+	}
+}
+
+func TestWithRotateSize(t *testing.T) {
+	dir, err := ioutil.TempDir("", "file-rotatelogs-rotatesize")
+	if !assert.NoError(t, err, `creating temporary directory should succeed`) {
+		return
+	}
+	defer os.RemoveAll(dir)
+	dummyTime := time.Now().Add(-24 * time.Hour)
+	clock := clockwork.NewFakeClockAt(dummyTime)
+	rl, err := rotatelogs.New(
+		filepath.Join(dir, "rotationTime_%Y%m%d%H%M%S.log"),
+		rotatelogs.WithClock(clock),
+		rotatelogs.WithRotationTime(24*time.Hour),
+		rotatelogs.WithMaxAge(time.Second*6),
+		rotatelogs.WithRotationCount(2),
+	)
+	if !assert.NoError(t, err, "rotatelogs.New should succeed") {
+		return
+	}
+	_, err = rl.Write([]byte("Hello, World!"))
+	if !assert.NoError(t, err) {
+		return
+	}
+	files, err := filepath.Glob(filepath.Join(dir, "rotationTime_*.log"))
+	if !assert.NoError(t, err) {
+		return
+	}
+	if !assert.Equal(t, 1, len(files)) {
+		return
+	}
+	time.Sleep(time.Second * 2)
+	lastFiles := make([]string, 2)
+	for i := 0; i < 5; i++ {
+		clock.Advance(24 * time.Hour)
+		_, err = rl.Write([]byte("Hello, World!"))
+		if !assert.NoError(t, err) {
+			return
+		}
+		time.Sleep(time.Second * 2)
+		files, err = filepath.Glob(filepath.Join(dir, "rotationTime_*.log*"))
+		if !assert.NoError(t, err) {
+			return
+		}
+		var filteredFiles []string
+		for _, file := range files {
+			if !strings.HasSuffix(file, "_lock") {
+				filteredFiles = append(filteredFiles, file)
+			}
+		}
+		t.Log(len(filteredFiles), files)
+		if !assert.Equal(t, 2, len(filteredFiles)) {
+			return
+		}
+		if i != 0 {
+			if !assert.NotEqual(t, lastFiles, filteredFiles) {
+				return
+			}
+		}
+		lastFiles = filteredFiles
+	}
+}
+
+func TestForceNewFile2(t *testing.T) {
+	dir, err := ioutil.TempDir("", "file-rotatelogs-forcenewfile")
+	if !assert.NoError(t, err, `creating temporary directory should succeed`) {
+		return
+	}
+	defer os.RemoveAll(dir)
+	f, err := os.Create(filepath.Join(dir, "logfile.log"))
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = f.Close()
+	if !assert.NoError(t, err) {
+		return
+	}
+	rl, err := rotatelogs.New(
+		filepath.Join(dir, "logfile.log"),
+		rotatelogs.ForceNewFile(),
+	)
+	if !assert.NoError(t, err, "rotatelogs.New should succeed") {
+		return
+	}
+	_, err = rl.Write([]byte("Hello, World!"))
+	if !assert.NoError(t, err) {
+		return
+	}
+	files, err := filepath.Glob(filepath.Join(dir, "logfile.log*"))
+	if !assert.NoError(t, err) {
+		return
+	}
+	var filteredFiles []string
+	for _, file := range files {
+		if !strings.HasSuffix(file, "_lock") {
+			filteredFiles = append(filteredFiles, file)
+		}
+	}
+	t.Log(len(filteredFiles), files)
+	assert.Equal(t, 2, len(filteredFiles))
 }
