@@ -48,7 +48,7 @@ func New(p string, options ...Option) (*RotateLogs, error) {
 	}
 	var clock Clock = Local
 	rotationTime := 24 * time.Hour
-	var rotationSize int64
+	var rotationSize int64 = 1 * 1024 * 1024 * 1024 // 1GB
 	var rotationCount uint
 	var linkName string
 	var maxAge time.Duration
@@ -94,15 +94,6 @@ func New(p string, options ...Option) (*RotateLogs, error) {
 		case optKeyCleanLockFile:
 			cleanLockName = o.Value().(string)
 		}
-	}
-
-	if maxAge > 0 && rotationCount > 0 {
-		return nil, errors.New("options MaxAge and RotationCount cannot be both set")
-	}
-
-	if maxAge == 0 && rotationCount == 0 {
-		// if both are 0, give maxAge a sane default
-		maxAge = 7 * 24 * time.Hour
 	}
 
 	rl := &RotateLogs{
@@ -453,9 +444,6 @@ func (rl *RotateLogs) rotateNolock(filename string) error {
 		}
 	}
 
-	if rl.maxAge <= 0 && rl.rotationCount <= 0 {
-		return errors.New("panic: maxAge and rotationCount are both set")
-	}
 	select {
 	case rl.rotateCleanChan <- struct{}{}:
 	default:
@@ -490,9 +478,10 @@ func (rl *RotateLogs) rotateClean() error {
 		return err
 	}
 
-	cutoff := rl.clock.Now().Add(-1 * rl.maxAge)
+	cutoff := time.Now().Add(-1 * rl.maxAge)
 	var toCompress []string
-	toCleanFl := make([]os.FileInfo, 0, len(matches))
+	totalFiles := make([]os.FileInfo, 0, len(matches))
+	outDateFiles := make([]os.FileInfo, 0, len(matches))
 	m := make(map[os.FileInfo]string)
 	for _, p := range matches {
 		// Ignore lock files and tmp files
@@ -517,33 +506,33 @@ func (rl *RotateLogs) rotateClean() error {
 			continue
 		}
 		toCompress = append(toCompress, p)
-		if rl.maxAge > 0 && fi.ModTime().After(cutoff) {
-			continue
+		if rl.maxAge > 0 && fi.ModTime().Compare(cutoff) <= 0 {
+			m[fl] = p
+			outDateFiles = append(outDateFiles, fl)
 		}
-
-		if rl.rotationCount > 0 && fl.Mode()&os.ModeSymlink == os.ModeSymlink {
-			continue
+		if rl.rotationCount > 0 && fl.Mode()&os.ModeSymlink != os.ModeSymlink {
+			m[fl] = p
+			totalFiles = append(totalFiles, fl)
 		}
-		m[fl] = p
-		toCleanFl = append(toCleanFl, fl)
 	}
 	// sort by mod time
-	sort.Slice(toCleanFl, func(i, j int) bool {
-		return toCleanFl[i].ModTime().Before(toCleanFl[j].ModTime())
+	sort.Slice(totalFiles, func(i, j int) bool {
+		return totalFiles[i].ModTime().Before(totalFiles[j].ModTime())
 	})
-	toClean := make([]string, 0, len(toCleanFl))
-	for _, info := range toCleanFl {
-		toClean = append(toClean, m[info])
+	overRotationSizeFiles := make([]os.FileInfo, 0, len(totalFiles))
+	if rl.rotationCount > 0 && uint(len(totalFiles)) > rl.rotationCount {
+		overRotationSizeFiles = totalFiles[:len(totalFiles)-int(rl.rotationCount)]
 	}
 
 	var toRemove []string
-	if rl.rotationCount > 0 && uint(len(toClean)) > rl.rotationCount {
-		// Only delete if we have more than rotationCount
-		toRemove = toClean[:len(toClean)-int(rl.rotationCount)]
-	}
-
-	if rl.maxAge > 0 {
-		toRemove = toClean
+	if len(overRotationSizeFiles) > len(outDateFiles) {
+		for i := 0; i < len(overRotationSizeFiles); i++ {
+			toRemove = append(toRemove, m[overRotationSizeFiles[i]])
+		}
+	} else {
+		for i := 0; i < len(outDateFiles); i++ {
+			toRemove = append(toRemove, m[outDateFiles[i]])
+		}
 	}
 
 	for _, path := range toRemove {
