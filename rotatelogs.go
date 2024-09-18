@@ -506,7 +506,7 @@ func (rl *RotateLogs) rotateClean() error {
 			continue
 		}
 		toCompress = append(toCompress, p)
-		if rl.maxAge > 0 && fi.ModTime().Compare(cutoff) <= 0 {
+		if rl.maxAge > 0 && !fi.ModTime().After(cutoff) {
 			m[fl] = p
 			outDateFiles = append(outDateFiles, fl)
 		}
