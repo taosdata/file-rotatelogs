@@ -1,0 +1,22 @@
+name: GO_MACOS
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        go: [ '1.17', 'stable' ]
+    name: Go ${{ matrix.go }} test
+    steps:
+      - name: checkout TDengine by pr
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: test
+        id: test
+        run: sudo go test -v --count=1
+
