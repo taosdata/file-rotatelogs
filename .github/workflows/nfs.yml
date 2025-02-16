@@ -1,0 +1,41 @@
+name: NFS
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ '1.17', 'stable' ]
+    name: Go ${{ matrix.go }} test
+    steps:
+      - name: install nfs
+        run: sudo apt install -y nfs-kernel-server nfs-common
+
+      - name: create share folder
+        run: sudo mkdir -p /nfs_share && sudo chmod 777 /nfs_share
+
+      - name: export share folder
+        run: echo "/nfs_share *(rw,sync,no_subtree_check)" | sudo tee -a /etc/exports
+
+      - name: restart nfs
+        run: sudo systemctl restart nfs-kernel-server
+
+      - name: mount nfs
+        run: sudo sudo mkdir -p /nfs_client && sudo mount 127.0.0.1:/nfs_share /nfs_client
+
+      - name: check mount
+        run: df -h
+
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: test
+        id: test
+        env:
+          TMPDIR: /nfs_client
+        run: sudo env TMPDIR=$TMPDIR go test -v --count=1
