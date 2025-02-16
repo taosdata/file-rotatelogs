@@ -327,7 +327,7 @@ func createLogFileAndLock(filename string, lockFilename string, appendFile bool)
 		return nil, nil, err
 	}
 	// create lock file and lock it
-	lockHandle, err := os.OpenFile(lockFilename, os.O_CREATE, 0644)
+	lockHandle, err := os.OpenFile(lockFilename, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
 		UnlockFile(logFileHandle)
 		logFileHandle.Close()
