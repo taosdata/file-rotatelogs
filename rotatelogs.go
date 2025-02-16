@@ -327,6 +327,7 @@ func createLogFileAndLock(filename string, lockFilename string, appendFile bool)
 		return nil, nil, err
 	}
 	// create lock file and lock it
+	// write only open file, avoid nfs file system lock file failed
 	lockHandle, err := os.OpenFile(lockFilename, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
 		UnlockFile(logFileHandle)
@@ -453,7 +454,8 @@ func (rl *RotateLogs) rotateNolock(filename string) error {
 
 func (rl *RotateLogs) rotateClean() error {
 	// open lock file
-	cleanLockFile, err := os.OpenFile(rl.cleanLockName, os.O_CREATE, 0644)
+	// write only open file, avoid nfs file system lock file failed
+	cleanLockFile, err := os.OpenFile(rl.cleanLockName, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return errors.Wrap(err, `failed to acquire clean lock`)
 	}
@@ -581,7 +583,8 @@ func (rl *RotateLogs) rotateClean() error {
 }
 
 func (rl *RotateLogs) checkLogInuse(filename string) bool {
-	fileHandle, err := os.Open(filename)
+	// write only open file, avoid nfs file system lock file failed
+	fileHandle, err := os.OpenFile(filename, os.O_WRONLY, 0)
 	if err != nil {
 		// if open file failed, return in use
 		return true
@@ -594,7 +597,8 @@ func (rl *RotateLogs) checkLogInuse(filename string) bool {
 	}
 	UnlockFile(fileHandle)
 	lockFile := filename + `_lock`
-	lockHandle, err := os.Open(lockFile)
+	// write only open file, avoid nfs file system lock file failed
+	lockHandle, err := os.OpenFile(lockFile, os.O_WRONLY, 0)
 	if err != nil {
 		// open lock file failed, return not in use
 		return false
@@ -628,7 +632,8 @@ func (rl *RotateLogs) checkLogInuse(filename string) bool {
 
 func compressFile(fileName, gzTempFile string) error {
 	// open file and lock it
-	f, err := os.Open(fileName)
+	// read-write open file, avoid nfs file system lock file failed
+	f, err := os.OpenFile(fileName, os.O_RDWR, 0)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to open file %s", fileName))
 	}
